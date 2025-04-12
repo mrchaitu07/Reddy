@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Animated, Alert } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
 const steps = [
@@ -10,8 +10,112 @@ const steps = [
   { id: "5", title: "Document", description: "Document for verify identity", icon: "file-check-outline" },
 ];
 
-export default function SetupAccountScreen({ navigation }) {
+const REQUIRED_STEPS = [1, 2, 3]; // Personal Info, Phone Number, and PIN are required
+
+export default function SetupAccountScreen({ navigation, route }) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [animateStep, setAnimateStep] = useState(null);
+  const checkmarkScale = new Animated.Value(0);
+
+  // Handle route params to check for completed steps
+  useEffect(() => {
+    // Handle phone verification completion
+    if (route.params?.phoneVerified) {
+      if (!completedSteps.includes(2)) {
+        const newCompletedSteps = [...completedSteps, 2];
+        setCompletedSteps(newCompletedSteps);
+        setAnimateStep(2);
+        
+        Animated.spring(checkmarkScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }).start(() => {
+          setTimeout(() => {
+            checkmarkScale.setValue(0);
+            setAnimateStep(null);
+          }, 1000);
+        });
+      }
+    }
+
+    // Handle personal info completion
+    if (route.params?.personalInfoCompleted) {
+      if (!completedSteps.includes(1)) {
+        const newCompletedSteps = [...completedSteps, 1];
+        setCompletedSteps(newCompletedSteps);
+        setAnimateStep(1);
+        
+        Animated.spring(checkmarkScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }).start(() => {
+          setTimeout(() => {
+            checkmarkScale.setValue(0);
+            setAnimateStep(null);
+          }, 1000);
+        });
+      }
+    }
+    
+    // Handle PIN setup completion
+    if (route.params?.pinSetupCompleted) {
+      if (!completedSteps.includes(3)) {
+        const newCompletedSteps = [...completedSteps, 3];
+        setCompletedSteps(newCompletedSteps);
+        setAnimateStep(3);
+        
+        Animated.spring(checkmarkScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 40,
+          useNativeDriver: true,
+        }).start(() => {
+          setTimeout(() => {
+            checkmarkScale.setValue(0);
+            setAnimateStep(null);
+          }, 1000);
+        });
+      }
+    }
+  }, [route.params?.phoneVerified, route.params?.personalInfoCompleted, route.params?.pinSetupCompleted]);
+
+  const handleStepPress = (stepIndex) => {
+    setCurrentStep(stepIndex + 1);
+    
+    // Navigate based on which step was clicked
+    if (stepIndex === 0) { // Personal Information step
+      navigation.navigate("PersonalInfo");
+    } else if (stepIndex === 1) { // Phone Number step
+      navigation.navigate("PhoneInput");
+    } else if (stepIndex === 2) { // PIN step
+      navigation.navigate("PinSetup");
+    }
+  };
+
+  const renderCheckmark = (index) => {
+    if (animateStep === index + 1) {
+      return (
+        <Animated.View style={{ 
+          transform: [{ scale: checkmarkScale }],
+        }}>
+          <Icon name="check" size={14} color="white" />
+        </Animated.View>
+      );
+    } else if (completedSteps.includes(index + 1)) {
+      return <Icon name="check" size={14} color="white" />;
+    }
+    return null;
+  };
+
+  const handleNextPress = () => {
+    // Navigate directly to HomeScreen without checking step completion
+    navigation.replace("HomeScreen", { userName: "Joshua" });
+  };
 
   return (
     <View style={styles.container}>
@@ -23,13 +127,20 @@ export default function SetupAccountScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
           <TouchableOpacity 
-            style={[styles.stepContainer, index < currentStep ? styles.activeStep : null]} 
-            onPress={() => setCurrentStep(index + 1)}
+            style={[
+              styles.stepContainer, 
+              (index < currentStep || completedSteps.includes(index + 1)) && styles.activeStep,
+              animateStep === index + 1 && styles.animatingStep
+            ]} 
+            onPress={() => handleStepPress(index)}
           >
             {/* Step Indicator */}
             <View style={styles.stepIndicatorContainer}>
-              <View style={[styles.circle, index < currentStep ? styles.activeCircle : null]}>
-                {index < currentStep && <Icon name="check" size={14} color="white" />}
+              <View style={[
+                styles.circle, 
+                (index < currentStep || completedSteps.includes(index + 1)) && styles.activeCircle
+              ]}>
+                {renderCheckmark(index)}
               </View>
               {index !== steps.length - 1 && <View style={styles.line} />}
             </View>
@@ -50,9 +161,27 @@ export default function SetupAccountScreen({ navigation }) {
       />
 
       {/* Next Button */}
-      <TouchableOpacity style={styles.nextButton} onPress={() => navigation.navigate("PersonalInfo")}>
-        <Text style={styles.nextButtonText}>Next →</Text>
+      <TouchableOpacity 
+        style={[
+          styles.nextButton,
+          REQUIRED_STEPS.every(step => completedSteps.includes(step)) && styles.completeButton
+        ]} 
+        onPress={handleNextPress}
+      >
+        <Text style={styles.nextButtonText}>
+          {REQUIRED_STEPS.every(step => completedSteps.includes(step)) 
+            ? "Go to Dashboard" 
+            : "Next →"
+          }
+        </Text>
       </TouchableOpacity>
+      
+      {/* Status indicator for debugging */}
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugText}>
+          Completed Steps: {completedSteps.join(', ')}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -82,6 +211,9 @@ const styles = StyleSheet.create({
   },
   activeStep: {
     backgroundColor: "#EDE7F6",
+  },
+  animatingStep: {
+    backgroundColor: "#D1C4E9",
   },
   stepIndicatorContainer: {
     alignItems: "center",
@@ -131,9 +263,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
+  completeButton: {
+    backgroundColor: "#4CAF50",
+  },
   nextButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
   },
+  debugContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 5,
+  },
+  debugText: {
+    fontSize: 12,
+    color: "#666",
+  }
 });
